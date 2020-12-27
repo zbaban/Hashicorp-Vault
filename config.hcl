@@ -1,4 +1,4 @@
-#Vault config file
+#Vault config file - NOTES
 1. after creating keys, insert location to config.hcl
 
 $ vim /etc/vault/config.hcl
@@ -72,3 +72,95 @@ Then you will see the file created vault_audit.log
 
 $ sudo cat vault_audit.log | jq
 
+
+#LAB STEP BY STEP
+
+TO configure HashiCorp logging, and set up log file syncing with a remote server.
+
+Solution
+
+Log in to the server using the credentials provided:
+
+ssh cloud_user@<PUBLIC_IP_ADDRESS>
+Enable HashiCorp Vault Logs
+
+In the Vault Server, retrieve the vault keys:
+cat Keys
+Unseal the vaults:
+vault operator unseal
+<UNSEAL_KEY_1>
+vault operator unseal
+<UNSEAL_KEY_2>
+vault operator unseal
+<UNSEAL_KEY_3>
+Log in with the Initial Root Token:
+vault login
+<INITIAL_ROOT_TOKEN>
+Enable logs:
+vault audit enable file file_path=/var/log/vault_audit.log
+Access the logs:
+sudo cat /var/log/vault_audit.log | jq
+Enable Key-Based SSH Authentication to a Backup Server
+
+In the Vault Server, generate a new key:
+ssh-keygen
+Copy the new ssh-rsa key:
+cat /home/cloud_user/.ssh/id_rsa.pub
+In the Client Server, add the key to the authorized_keys file.
+sudo vim /home/cloud_user/.ssh/authorized_keys
+Save the file:
+ESC
+:wq
+ENTER
+Open the sshd_config file:
+sudo vim /etc/ssh/sshd_config
+Enable key-based authentication by uncommenting the following line:
+PubkeyAuthentication yes
+Save the file:
+ESC
+:wq
+ENTER
+Apply the changes:
+sudo systemctl restart sshd
+Use Rsync to Create Log Backups on the Vault Server
+
+In the Vault Server, make a new directory:
+mkdir /home/cloud_user/testDir/
+Create a test file in the directory:
+touch /home/cloud_user/testDir/test
+Populate the file with generic data:
+echo "THIS IS A TEST RUN!" > /home/cloud_user/testDir/test
+Using rsync, sync the test file between the two servers:
+rsync -a /home/cloud_user/testDir/test cloud_user@<CLIENT_PRIVATE_SERVER_IP>:/home/cloud_user
+In the Vault Server, configure a trigger for file sync:
+sudo apt install incron
+Add the cloud_user to the incron.allow file:
+sudo vim /etc/incron.allow
+cloud_user
+Save the file:
+ESC
+:wq
+ENTER
+Create a directory on the Client server to hold the logs:
+mkdir /home/cloud_user/vault/
+In the Vault Server, update the log permissions:
+chmod +r /var/log/vault_audit.log
+In the Vault Server, create a new job:
+incrontab -e
+In the new file, paste the following:
+/var/log/vault_audit.log IN_MODIFY rsync -a /var/log/vault_audit.log cloud_user@<CLIENT_PRIVATE_SERVER_PRIVATE_IP>:/home/cloud_user/vault/
+In the Vault Server, enable a kv secrets engine:
+vault secrets enable -path=secret kv
+In the Client server, run the following command to test the setup:
+
+curl \
+-H "Authorization: Bearer <INITIAL_ROOT_TOKEN>" \
+-H "Content-Type: application/json" \
+-X POST \
+-d '{"bla":"bla"}' \
+<VAULT_SERVER_DOMAIN_NAME>/v1/secret/test | jq
+Note: You can find the Vault Server domain by running cat Domain.
+
+Generate a GET request and check if the logs have been synced:
+
+curl -H "X-Vault-Token: <INITIAL_ROOT_TOKEN>" -X LIST <VAULT_SERVER_DOMAIN_NAME>/v1/secret
