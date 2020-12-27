@@ -1,0 +1,162 @@
+In this scenario, we are working in a DevOps position and received a task to install and set up HashiCorp Vault in the company cloud. The manager forgot to inform us in time, so now we have about two hours before the presentation meeting to set this up and make a good impression.
+
+Use dig to get the domain name of the server:
+
+dig -x <SERVER_PUBLIC_IP>
+Solution
+
+Log in to the server using the credentials provided:
+
+ssh cloud_user@<PUBLIC_IP_ADDRESS>
+Download, Unpack, and Move Consul to the Bin Directory
+
+Download Consul:
+
+wget https://releases.hashicorp.com/consul/1.7.3/consul_1.7.3_linux_amd64.zip
+Install unzip and unpack Consul:
+
+sudo apt install unzip
+unzip consul_1.7.3_linux_amd64.zip
+Move consul executable to the bin directory:
+
+sudo mv consul /usr/bin
+Test it out!
+
+consul
+Create a Consul systemd Service
+
+Create a systemd service:
+
+sudo vim /etc/systemd/system/consul.service
+Click Remove unprintable when prompted.
+
+Get the IP address of the server:
+
+ip addr show
+Paste in the configuration. Replace IP.ADDRESS.OF.SERVER with the internal IP address of the server:
+
+[Unit]
+Description=Consul
+Documentation=https://www.consul.io/
+[Service]
+ExecStart=/usr/bin/consul agent -server -ui -data-dir=/temp/consul -bootstrap-expect=1 -node=vault -bind=IP.ADDRESS.OF.SERVER -config-dir=/etc/consul.d/
+ExecReload=/bin/kill -HUP $MAINPID
+LimitNOFILE=65536
+[Install]
+WantedBy=multi-user.target
+To quit:
+
+Hit ESC
+Type :wq
+Hit ENTER
+Create a directory for configuration files:
+
+sudo mkdir /etc/consul.d
+Create a configuration for UI:
+
+Note: This step is optional.
+
+sudo vim /etc/consul.d/ui.json
+{
+"addresses": {
+"http": "0.0.0.0"
+}
+}
+To quit:
+
+Hit ESC
+Type :wq
+Hit ENTER
+Reload, start, enable, and verify the new service:
+
+sudo systemctl daemon-reload
+sudo systemctl start consul
+sudo systemctl enable consul
+sudo systemctl status consul
+Move Vault to the Bin Directory and Create a Configuration File
+
+Download Vault:
+
+wget https://releases.hashicorp.com/vault/1.5.0/vault_1.5.0_linux_amd64.zip
+Unpack Vault:
+
+unzip vault_1.5.0_linux_amd64.zip
+Move Vault binary to the bin directory:
+
+sudo mv vault /usr/bin
+Create a directory for the configuration file and populate it:
+
+sudo mkdir /etc/vault/
+sudo vim /etc/vault/config.hcl
+Click Remove unprintable when prompted.
+
+Get the IP address of the server:
+
+ip addr show
+Insert the configuration. Replace Consul.IP.ADDRESS with the Consul IP address:
+
+storage "consul" {
+    address = "Consul.IP.ADDRESS:8500"
+    path = "vault/"
+}
+listener "tcp" {
+    address = "0.0.0.0:80"
+    tls_disable = 1
+}
+ui = true
+To quit:
+
+Hit ESC
+Type :wq
+Hit ENTER
+Create a systemd service:
+
+sudo vim /etc/systemd/system/vault.service
+Click Remove unprintable when prompted.
+
+[Unit]
+Description=Vault
+Documentation=https://www.vault.io/
+
+[Service]
+ExecStart=/usr/bin/vault server -config=/etc/vault/config.hcl
+ExecReload=/bin/kill -HUP $MAINPID
+LimitNOFILE=65536
+
+[Install]
+WantedBy=multi-user.target
+To quit:
+
+* Hit **ESC**
+* Type **:wq**
+* Hit **ENTER**
+Reload, start, enable, and verify the new service:
+
+sudo systemctl daemon-reload
+sudo systemctl start vault
+sudo systemctl enable vault
+sudo systemctl status vault  
+Get the domain name of the server:
+
+dig -x <SERVER_PUBLIC_IP>
+Set the Vault address:
+
+export VAULT_ADDR="http://<DOMAIN_NAME>"
+echo "export VAULT_ADDR=http://<DOMAIN_NAME>" >> ~/.bashrc
+Set up autocomplete:
+
+vault -autocomplete-install
+complete -C /usr/bin/vault vault
+Test It Out!
+
+Initialize the Vault:
+
+vault operator init
+Note: It is important to save the keys and root token. If lost, access to the Vault will be lost.
+
+vault operator unseal <KEY_1>
+vault operator unseal <KEY_2>
+vault operator unseal <KEY_3>
+Log in to the Vault:
+
+vault login <TOKEN>
