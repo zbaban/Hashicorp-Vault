@@ -1,0 +1,32 @@
+nstall python3-pip, the Django framework, and Allow the Web Server to Access the App
+
+Clone the Git repository:
+git clone https://github.com/ErminLA/HashiCorp-Vault.git
+Install python3-pip:
+sudo apt install python3-pip
+Using pip3, install the Django framework:
+pip3 install Django --user
+Open the settings.py file:
+vim /home/cloud_user/HashiCorp-Vault/ACG/settings.py
+Add the Web Server public IP address to the ALLOWED_HOSTS
+ALLOWED_HOSTS = [<WEB_SERVER_PUBLIC_IP_ADDRESS>]
+Save the file:
+ESC
+:wq
+ENTER
+Open the views.py file:
+vim /home/cloud_user/HashiCorp-Vault/ACG_Login/views.py
+In the get_hashed_vault_creds() function, change the following parameters:
+url = "<VAULT_SERVER_DOMAIN_NAME>/v1/web-kv/web01"
+hdr = { 'X-Vault-Token' : '<CLIENT_TOKEN>' }
+Save the file:
+ESC
+:wq
+ENTER
+Change to the HashiCorp-Vault/ directory:
+cd HashiCorp-Vault/
+Run the django app:
+python3.6 manage.py runserver 0.0.0.0:8080
+Open a web browser, go to 0.0.0.0:8080, and test the login:
+Email address: "test@test.com"
+Password: "test321"
