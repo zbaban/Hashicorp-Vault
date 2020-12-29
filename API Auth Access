@@ -1,0 +1,83 @@
+The goal of this lab is to configure a HashiCorp vault in such a way that will provide authentication for a web application API.
+
+This can be achieved by creating a KV - Secrets Engine whose contents will be compared with what the user sends in the authentication header.
+
+If there is a positive match, the API GET request is authenticated by the secrets engine; if there is no positive match, then the request is classified as unauthorized.
+
+Solution
+
+Log in to the servers using the credentials provided:
+
+ssh cloud_user@<PUBLIC_IP_ADDRESS>
+Log in with the Root Token and Unseal the Vault
+
+In the Vault Server, unseal the vaults:
+vault operator unseal
+<UNSEAL_KEY_1>
+vault operator unseal
+<UNSEAL_KEY_2>
+vault operator unseal
+<UNSEAL_KEY_3>
+Log in with the Initial Root Token:
+vault login
+<INITIAL_ROOT_TOKEN>
+Enable vault secrets and Limit its Access
+
+Enable the kv store:
+vault secrets enable -path=api-keys kv
+Generate a random hash:
+echo -n "fieahthtr6hjywjgaiwogjiogj" | sha256sum -
+Create the api-key:
+vault kv put api-keys/key01 API-01=<RANDOM_HASH_OUTPUT>
+Create a policy for the access token:
+vim api-policy.hcl
+In the new document, paste the following:
+path "api-keys/key01"{
+  capabilities = ["read"]
+}
+Save the policy:
+ESC
+:wq
+ENTER
+Write the policy:
+vault policy write api-policy api-policy.hcl
+Create an access token:
+vault token create -policy="api-policy" -format=json | jq
+Copy the client_token for later use.
+Copy the Vault Server domain name:
+cat Domain
+In the Client server, test the access token:
+curl -H "X-Vault-Token: <CLIENT_TOKEN>" http://<VAULT_SERVER_DOMAIN_NAME>/v1/api-keys/key01 | jq
+Clone the Github Repo, Modify the App Code, and Run the App on the Web Server
+
+In the Web Server, clone the GitHub repository:
+git clone https://github.com/ErminLA/HashiCorp-Vault.git
+Install pip for python3:
+sudo apt install python3-pip
+Install Django framework for the current user:
+pip3 install Django --user
+Open the settings.py file:
+vim /home/cloud_user/HashiCorp-Vault/ACG/settings.py
+Add the Web Server host to the allowed hosts:
+ALLOWED_HOSTS = ["<WEB_SERVER_PUBLIC_IP_ADDRESS>"]
+Save the file:
+ESC
+:wq
+ENTER
+Open the views.py file:
+vim /home/cloud_user/HashiCorp-Vault/ACG_Login/views.py
+In the get_token() function make the following changes:
+url = "<VAULT_SERVER_DOMAIN_NAME>/v1/api-keys/key01"
+hdr = { 'X-Vault-Token' : <CLIENT_TOKEN> }
+Save the file
+ESC
+:wq
+ENTER
+Test out the API call
+
+Change to the HashiCorp-Vault/ directory:
+cd /home/cloud_user/HashiCorp-Vault/
+Run the Django app:
+python3.6 manage.py runserver 0.0.0.0:8080
+Make a test call from the Client Server
+curl -H "Auth-Token: <RANDOM_HASH_OUTPUT>" <WEB_SERVER_PUBLIC_IP_ADDRESS>:8080/api_auth_test
