@@ -1,3 +1,6 @@
+In this scenario, we will have 3 servers, Vault Server, Database Server and Client machine to test the connection.
+we will create a DB with two tables, only one can be accessed via Vault.
+
 Log in to the server using the credentials provided:
 
 ssh cloud_user@<PUBLIC_IP_ADDRESS>
@@ -15,7 +18,7 @@ vault operator unseal
 Log in with the Initial Root Token:
 vault login
 <INITIAL_ROOT_TOKEN>
-Install a MariaDB Server and Configure Remote Access
+Install a MariaDB Server and Configure Remote Access on the Database Server
 
 In the Database Server, install mariadb-server and mariadb-client:
 sudo apt install mariadb-server mariadb-client
@@ -72,7 +75,7 @@ Grant Vault Access to the Database and Create a User with Access to the test_tab
 In the Vault Server, enable a database secrets engine:
 vault secrets enable database
 In the Vault Server, grant access to the database:
-vault write database/config/my_database plugin_name=mysql-legacy-database-plugin connection_url=`{{username}}:{{password}}@tcp(<DATABASE_SERVER_PRIVATE_IP_ADDRESS>)/` allowed_roles='my_database' username='vault' password='!!!Something21!!'
+vault write database/config/my_database plugin_name=mysql-legacy-database-plugin connection_url='{{username}}:{{password}}@tcp(<DATABASE_SERVER_PRIVATE_IP_ADDRESS:PORT>)/' allowed_roles='my_database' username='vault' password='!!!Something21!!'
 Create a user with access to the test_table:
 vault write database/roles/my_database \
 db_name=my_database \
