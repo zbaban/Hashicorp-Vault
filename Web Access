@@ -1,4 +1,4 @@
-nstall python3-pip, the Django framework, and Allow the Web Server to Access the App
+Install python3-pip, the Django framework, and Allow the Web Server to Access the App
 
 Clone the Git repository:
 git clone https://github.com/ErminLA/HashiCorp-Vault.git
