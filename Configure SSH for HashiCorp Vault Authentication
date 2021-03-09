@@ -1,0 +1,69 @@
+Configure SSH for HashiCorp Vault Authentication
+
+
+You will be required to configure HashiCorp Vault to generate SSH one time passwords for a client on request. In order to achieve this we will need to configure both the client and the HashiCorp Vault server.
+
+Solution
+
+Unseal the Vault and Log in with the Root Token
+In the Vault Server, retrieve the vault keys:cat Keys 
+Unseal the vault:vault operator unseal
+<UNSEAL_KEY_1>
+vault operator unseal
+<UNSEAL_KEY_2>
+vault operator unseal
+<UNSEAL_KEY_3> 
+
+Log in with the Initial Root Token:vault login
+<INITIAL_ROOT_TOKEN> 
+
+Enable SSH Secrets Engine and provide access to ssh/creds/otp_role
+Enable SSH Secrets engine:vault secrets enable ssh 
+Create an otp_role with key type otp:vault write ssh/roles/otp_role key_type=otp \
+    default_user=ubuntu \
+    cidr_list=0.0.0.0/0 
+Create a policy file to provide access to ssh/creds/otp_role:vim otp-policy.hcl 
+In the file, paste the following:path "ssh/creds/otp_role" {
+  capabilities = ["create", "read", "update"]
+} 
+Save the file:ESC
+:wq
+ENTER 
+Write a policy based on the otp-policy.hcl file:vault policy write otp-policy otp-policy.hcl 
+Enable userpass Authentication Method
+Enable userpass:vault auth enable userpass 
+Create a user and assign the otp-policy:vault write auth/userpass/users/tom password="somePass123" policies="otp-policy" 
+On the remote host apart from the vault server, install vault-ssh-helper and configure SSH
+In the SSH Client, download vault-ssh-helper:wget https://releases.hashicorp.com/vault-ssh-helper/0.1.6/vault-ssh-helper_0.1.6_linux_amd64.zip 
+Add the ubuntu user:sudo useradd ubuntu 
+Unzip the vault-ssh-helper_0.1.6_linux_amd64.zip file and move it to /usr/local/bin:sudo unzip -q vault-ssh-helper_0.1.6_linux_amd64.zip -d /usr/local/bin 
+Update the permissions on the vault-ssh-helper binary:sudo chmod 0755 /usr/local/bin/vault-ssh-helper 
+Change ownership of the binary from the cloud_user, to the root user, and root group:sudo chown root:root /usr/local/bin/vault-ssh-helper 
+Create a new directory named vault-ssh-helper:sudo mkdir /etc/vault-ssh-helper.d/ 
+Create a configuration file for vault-ssh-helpersudo vim /etc/vault-ssh-helper.d/config.hcl 
+In the file, paste the following information: vault_addr = "http://<VAULT_SERVER_DOMAIN>"
+ssh_mount_point = "ssh"
+allowed_roles = "*"  Note: You can find the vault server domain name by running cat Domain 
+Save the file: ESC
+:wq
+ENTER 
+Open the pam.d/sshd configuration file:sudo vim /etc/pam.d/sshd 
+In the file, paste the following:#@include common-auth
+auth requisite pam_exec.so quiet expose_authtok log=/var/log/vault-ssh.log /usr/local/bin/vault-ssh-helper -config=/etc/vault-ssh-helper.d/config.hcl  -dev
+auth optional pam_unix.so not_set_pass use_first_pass nodelay 
+Save the file:ESC
+:wq
+ENTER 
+Open the sshd configuration file:sudo vim /etc/ssh/sshd_config 
+Update the following lines:ChallengeResponseAuthentication yes
+UsePAM yes
+PasswordAuthentication no 
+Save the file:ESC
+:wq
+ENTER 
+Restart sshd to apply the changes:sudo systemctl restart sshd 
+Run vault-ssh-helper verification:vault-ssh-helper -verify-only -config /etc/vault-ssh-helper.d/config.hcl -dev 
+In the Vault Server, log in using the userpass credentials:vault login -method=userpass username=tom password=somePass123 
+Create a one-time password and copy the key for later use:vault write ssh/creds/otp_role ip=<SSH_CLIENT_PRIVATE_IP_ADDRESS> 
+From the Client server, use the one-time password to connect to the SSH Client:ssh ubuntu@<SSH_CLIENT_PRIVATE_IP_ADDRESS>
+Password: <OTP_KEY> 
